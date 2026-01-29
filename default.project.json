@@ -1,0 +1,96 @@
+{
+  "name": "Scorch",
+  "tree": {
+    "$className": "DataModel",
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "Server": {
+        "$path": "src/Server"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "Client": {
+          "$path": "src/Client"
+        }
+      }
+    },
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Shared": {
+        "$path": "src/Shared"
+      },
+      "Packages": {
+        "$path": "Packages"
+      }
+    },
+    "Workspace": {
+      "$className": "Workspace",
+      "$properties": {
+        "FilteringEnabled": true
+      },
+      "Maps": {
+        "$className": "Folder"
+      },
+      "SpawnPoints": {
+        "$className": "Folder"
+      }
+    },
+    "Lighting": {
+      "$className": "Lighting",
+      "$properties": {
+        "Ambient": [0.1, 0.1, 0.15],
+        "OutdoorAmbient": [0.1, 0.1, 0.15],
+        "Brightness": 0.5,
+        "ClockTime": 0,
+        "GeographicLatitude": 45,
+        "FogColor": [0.15, 0.15, 0.2],
+        "FogEnd": 200,
+        "FogStart": 50
+      },
+      "Atmosphere": {
+        "$className": "Atmosphere",
+        "$properties": {
+          "Density": 0.4,
+          "Offset": 0.25,
+          "Color": [0.6, 0.6, 0.7],
+          "Decay": [0.85, 0.85, 0.9],
+          "Glare": 0,
+          "Haze": 2
+        }
+      }
+    },
+    "SoundService": {
+      "$className": "SoundService",
+      "Sounds": {
+        "$className": "Folder"
+      }
+    },
+    "Teams": {
+      "$className": "Teams",
+      "Seekers": {
+        "$className": "Team",
+        "$properties": {
+          "TeamColor": { "BrickColor": 21 },
+          "AutoAssignable": false
+        }
+      },
+      "Runners": {
+        "$className": "Team",
+        "$properties": {
+          "TeamColor": { "BrickColor": 23 },
+          "AutoAssignable": false
+        }
+      },
+      "Lobby": {
+        "$className": "Team",
+        "$properties": {
+          "TeamColor": { "BrickColor": 194 },
+          "AutoAssignable": true
+        }
+      }
+    }
+  }
+}

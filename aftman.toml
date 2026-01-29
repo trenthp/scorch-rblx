@@ -1,0 +1,4 @@
+# Aftman tool versions for Scorch
+[tools]
+rojo = "rojo-rbx/rojo@7.4.4"
+wally = "UpliftGames/wally@0.3.2"

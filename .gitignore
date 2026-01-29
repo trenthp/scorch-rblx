@@ -1,0 +1,25 @@
+# Wally packages
+Packages/
+wally.lock
+
+# Roblox files
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+
+# Rojo sourcemap
+sourcemap.json
+
+# Editor files
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test output
+test-results/
