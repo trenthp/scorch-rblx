@@ -41,14 +41,14 @@
     "Lighting": {
       "$className": "Lighting",
       "$properties": {
-        "Ambient": [0.1, 0.1, 0.15],
-        "OutdoorAmbient": [0.1, 0.1, 0.15],
-        "Brightness": 0.5,
-        "ClockTime": 0,
+        "Ambient": [0.3, 0.3, 0.35],
+        "OutdoorAmbient": [0.25, 0.25, 0.3],
+        "Brightness": 1,
+        "ClockTime": 4,
         "GeographicLatitude": 45,
-        "FogColor": [0.15, 0.15, 0.2],
-        "FogEnd": 200,
-        "FogStart": 50
+        "FogColor": [0.2, 0.2, 0.25],
+        "FogEnd": 300,
+        "FogStart": 100
       },
       "Atmosphere": {
         "$className": "Atmosphere",

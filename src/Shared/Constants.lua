@@ -11,10 +11,10 @@ local Constants = {
     FLASHLIGHT_CHECK_RATE = 0.1,     -- seconds between detection checks
 
     -- Round settings
-    ROUND_DURATION = 180,            -- seconds (3 minutes)
-    COUNTDOWN_DURATION = 5,          -- seconds before round starts
-    SEEKER_FREEZE_DURATION = 5,      -- seconds seekers are frozen at start
-    RESULTS_DURATION = 10,           -- seconds to show results
+    ROUND_DURATION = 180,            -- seconds (3 minutes) for active gameplay
+    GET_READY_DURATION = 5,          -- seconds for initial "get ready" countdown
+    HIDING_DURATION = 15,            -- seconds for runners to hide (seeker frozen)
+    RESULTS_DURATION = 30,           -- seconds to show results
     TEAM_SELECTION_DURATION = 15,    -- seconds for team selection
 
     -- Player settings
@@ -29,6 +29,11 @@ local Constants = {
     FLASHLIGHT_COLOR = Color3.fromRGB(255, 247, 230),
     FREEZE_COLOR = Color3.fromRGB(150, 200, 255),
     FREEZE_TRANSPARENCY = 0.3,
+
+    -- Fallback flashlight model settings
+    FLASHLIGHT_BODY_COLOR = Color3.fromRGB(40, 40, 40),
+    FLASHLIGHT_HEAD_COLOR = Color3.fromRGB(60, 60, 60),
+    FLASHLIGHT_LENS_COLOR = Color3.fromRGB(255, 255, 200),
 
     -- Team colors
     SEEKER_COLOR = BrickColor.new("Bright red"),

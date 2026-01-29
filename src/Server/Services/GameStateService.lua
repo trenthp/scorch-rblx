@@ -2,7 +2,12 @@
 --[[
     GameStateService.lua
     Manages the core game state machine
-    States: LOBBY → TEAM_SELECTION → COUNTDOWN → GAMEPLAY → RESULTS → (loop)
+    States: LOBBY → TEAM_SELECTION → GAMEPLAY → RESULTS → (loop back to TEAM_SELECTION)
+
+    GAMEPLAY has internal phases managed by RoundService:
+    - COUNTDOWN: All players frozen, 5 second countdown
+    - HIDING: Runners can move, seekers frozen, 15 seconds
+    - ACTIVE: Everyone can move, 3 minute timer
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,6 +27,7 @@ local GameStateService = Knit.CreateService({
     -- Client-exposed methods and events
     Client = {
         GameStateChanged = Knit.CreateSignal(),
+        NextRoundCountdown = Knit.CreateSignal(),
     },
 
     -- Internal state
@@ -87,8 +93,6 @@ function GameStateService:_onStateEnter(state: string)
         self:_startLobbyCheck()
     elseif state == Enums.GameState.TEAM_SELECTION then
         self:_startTeamSelection()
-    elseif state == Enums.GameState.COUNTDOWN then
-        self:_startCountdown()
     elseif state == Enums.GameState.GAMEPLAY then
         self:_startGameplay()
     elseif state == Enums.GameState.RESULTS then
@@ -121,28 +125,18 @@ function GameStateService:_startTeamSelection()
         local TeamService = Knit.GetService("TeamService")
         TeamService:StartTeamSelection()
 
-        -- Wait for team selection duration
-        task.wait(Constants.TEAM_SELECTION_DURATION)
+        -- Countdown during team selection
+        for i = Constants.TEAM_SELECTION_DURATION, 1, -1 do
+            if self._currentState ~= Enums.GameState.TEAM_SELECTION then
+                return
+            end
+            self.Client.NextRoundCountdown:FireAll(i)
+            task.wait(1)
+        end
 
         -- Only proceed if still in team selection
         if self._currentState == Enums.GameState.TEAM_SELECTION then
             TeamService:FinalizeTeams()
-            self:SetState(Enums.GameState.COUNTDOWN)
-        end
-    end)
-end
-
---[[
-    Handle countdown before gameplay
-]]
-function GameStateService:_startCountdown()
-    task.spawn(function()
-        local RoundService = Knit.GetService("RoundService")
-        RoundService:StartCountdown()
-
-        task.wait(Constants.COUNTDOWN_DURATION)
-
-        if self._currentState == Enums.GameState.COUNTDOWN then
             self:SetState(Enums.GameState.GAMEPLAY)
         end
     end)
@@ -158,25 +152,48 @@ end
 
 --[[
     Handle results display
+    Shows results while counting down, then transitions to team selection
+    The countdown shows TOTAL time (results + team selection)
 ]]
 function GameStateService:_startResults()
     task.spawn(function()
-        task.wait(Constants.RESULTS_DURATION)
+        local totalTime = Constants.RESULTS_DURATION + Constants.TEAM_SELECTION_DURATION
 
-        if self._currentState == Enums.GameState.RESULTS then
-            -- Reset for next round
-            local TeamService = Knit.GetService("TeamService")
-            TeamService:ResetTeams()
-
-            -- Check player count before returning to appropriate state
-            local playerCount = #Players:GetPlayers()
-            if playerCount >= Constants.MIN_PLAYERS then
-                self:SetState(Enums.GameState.TEAM_SELECTION)
-            else
-                self:SetState(Enums.GameState.LOBBY)
+        -- Countdown during results phase (starts at total time)
+        for i = totalTime, Constants.TEAM_SELECTION_DURATION + 1, -1 do
+            if self._currentState ~= Enums.GameState.RESULTS then
+                return
             end
+            self.Client.NextRoundCountdown:FireAll(i)
+            task.wait(1)
+        end
+
+        -- Transition to team selection (countdown continues there)
+        if self._currentState == Enums.GameState.RESULTS then
+            self:_exitResults()
         end
     end)
+end
+
+--[[
+    Exit results and go to next state
+]]
+function GameStateService:_exitResults()
+    if self._currentState ~= Enums.GameState.RESULTS then
+        return
+    end
+
+    -- Reset for next round
+    local TeamService = Knit.GetService("TeamService")
+    TeamService:ResetTeams()
+
+    -- Check player count before returning to appropriate state
+    local playerCount = #Players:GetPlayers()
+    if playerCount >= Constants.MIN_PLAYERS then
+        self:SetState(Enums.GameState.TEAM_SELECTION)
+    else
+        self:SetState(Enums.GameState.LOBBY)
+    end
 end
 
 -- Client methods

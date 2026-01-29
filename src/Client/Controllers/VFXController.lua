@@ -112,21 +112,21 @@ function VFXController:_onStateChanged(newState: string)
 end
 
 --[[
-    Set dark, tense atmosphere for gameplay
+    Set tense atmosphere for gameplay (not too dark)
 ]]
 function VFXController:_setGameplayAtmosphere()
     if self._colorCorrection then
         TweenService:Create(self._colorCorrection, TweenInfo.new(2), {
-            Brightness = -0.05,
-            Contrast = 0.15,
-            Saturation = -0.2,
+            Brightness = 0,
+            Contrast = 0.1,
+            Saturation = -0.1,
         }):Play()
     end
 
-    -- Darken ambient
+    -- Slightly darker ambient but still visible
     TweenService:Create(Lighting, TweenInfo.new(2), {
-        Ambient = Color3.fromRGB(20, 20, 30),
-        OutdoorAmbient = Color3.fromRGB(20, 20, 30),
+        Ambient = Color3.fromRGB(60, 60, 70),
+        OutdoorAmbient = Color3.fromRGB(50, 50, 60),
     }):Play()
 end
 

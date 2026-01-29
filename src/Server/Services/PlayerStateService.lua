@@ -157,7 +157,13 @@ end
     Reset all player states (for new round)
 ]]
 function PlayerStateService:ResetAllStates()
-    for player, _ in self._playerStates do
+    for player, state in self._playerStates do
+        -- Notify clients if player was frozen
+        if state.freezeState == Enums.FreezeState.Frozen then
+            self.Client.PlayerUnfrozen:FireAll(player, player) -- unfrozenBy self
+            self.Client.StateChanged:Fire(player, Enums.FreezeState.Active)
+        end
+
         self._playerStates[player] = {
             freezeState = Enums.FreezeState.Active,
             frozenBy = nil,

@@ -14,17 +14,26 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Enums = require(Shared:WaitForChild("Enums"))
 
 -- Sound IDs (placeholder - replace with actual Roblox sound IDs)
+-- Find sounds at: https://create.roblox.com/store/audio
 local SOUND_IDS = {
-    Freeze = "rbxassetid://9125402735", -- Ice/freeze sound
-    Unfreeze = "rbxassetid://9125402735", -- Unfreeze sound
-    Countdown = "rbxassetid://9125402735", -- Countdown beep
-    RoundStart = "rbxassetid://9125402735", -- Round start horn
-    RoundEnd = "rbxassetid://9125402735", -- Round end sound
-    SeekerWin = "rbxassetid://9125402735", -- Seekers win
-    RunnerWin = "rbxassetid://9125402735", -- Runners win
-    FlashlightOn = "rbxassetid://9125402735", -- Flashlight toggle
-    FlashlightOff = "rbxassetid://9125402735", -- Flashlight off
-    Ambient = "rbxassetid://9125402735", -- Ambient forest sounds
+    -- UI/Feedback sounds
+    Countdown = "rbxassetid://9125402735",      -- Countdown beep/tick
+
+    -- Round transition sounds
+    TeamSelection = "rbxassetid://101228531956240",  -- Team selection music/jingle
+    RoundStart = "rbxassetid://9125402735",     -- Round start horn/signal
+    RoundEnd = "rbxassetid://9125402735",       -- Round end sound
+    SeekerWin = "rbxassetid://101228531956240",      -- Seekers victory
+    RunnerWin = "rbxassetid://101228531956240",      -- Runners victory
+
+    -- Gameplay sounds
+    Freeze = "rbxassetid://128004921736980",         -- Player frozen
+    Unfreeze = "rbxassetid://9114869369",       -- Player unfrozen/rescued
+    FlashlightOn = "rbxassetid://91780959457306",   -- Flashlight toggle on
+    FlashlightOff = "rbxassetid://242135745",  -- Flashlight toggle off
+
+    -- Ambient/Music
+    Ambient = "rbxassetid://102839112392293",        -- Gameplay ambient/music
 }
 
 local AudioService = Knit.CreateService({
@@ -36,7 +45,6 @@ local AudioService = Knit.CreateService({
     },
 
     _sounds = {} :: { [string]: Sound },
-    _ambientSound = nil :: Sound?,
 })
 
 function AudioService:KnitInit()
@@ -45,20 +53,35 @@ function AudioService:KnitInit()
 end
 
 function AudioService:KnitStart()
-    -- Subscribe to game events for automatic sound playing
+    -- Subscribe to game state changes
     local GameStateService = Knit.GetService("GameStateService")
     GameStateService:OnStateChanged(function(newState)
         self:_onStateChanged(newState)
     end)
 
+    -- Subscribe to gameplay phase changes
+    local RoundService = Knit.GetService("RoundService")
+    RoundService:OnPhaseChanged(function(phase)
+        self:_onPhaseChanged(phase)
+    end)
+
+    -- Subscribe to countdown ticks for countdown audio
+    RoundService:OnCountdownTick(function(seconds, phase)
+        self:_onCountdownTick(seconds, phase)
+    end)
+
+    -- Subscribe to round end for victory sounds
+    RoundService:OnRoundEnded(function(results)
+        self:_onRoundEnded(results)
+    end)
+
+    -- Subscribe to player freeze/unfreeze
     local PlayerStateService = Knit.GetService("PlayerStateService")
     PlayerStateService:OnPlayerFrozen(function(player)
-        self:PlaySoundForAll("Freeze")
         self:PlaySoundAtPlayer(player, "Freeze")
     end)
 
     PlayerStateService:OnPlayerUnfrozen(function(player)
-        self:PlaySoundForAll("Unfreeze")
         self:PlaySoundAtPlayer(player, "Unfreeze")
     end)
 
@@ -91,21 +114,66 @@ function AudioService:_createSounds()
         self._sounds.Ambient.Looped = true
         self._sounds.Ambient.Volume = 0.3
     end
+
+    -- Team selection can also loop
+    if self._sounds.TeamSelection then
+        self._sounds.TeamSelection.Looped = true
+        self._sounds.TeamSelection.Volume = 0.4
+    end
 end
 
 --[[
-    Handle state changes for automatic sounds
+    Handle game state changes
 ]]
 function AudioService:_onStateChanged(newState: string)
-    if newState == Enums.GameState.COUNTDOWN then
-        self:PlaySoundForAll("Countdown")
-    elseif newState == Enums.GameState.GAMEPLAY then
-        self:PlaySoundForAll("RoundStart")
-        self:_startAmbient()
-    elseif newState == Enums.GameState.RESULTS then
+    if newState == Enums.GameState.TEAM_SELECTION then
+        -- Play team selection music (continues from RESULTS if already playing)
         self:_stopAmbient()
+        self:_startTeamSelectionMusic()
+    elseif newState == Enums.GameState.GAMEPLAY then
+        -- Stop team selection music (ambient starts when ACTIVE phase begins)
+        self:_stopTeamSelectionMusic()
+    elseif newState == Enums.GameState.RESULTS then
+        -- Stop ambient, start team selection music for results/transition
+        self:_stopAmbient()
+        self:_startTeamSelectionMusic()
     elseif newState == Enums.GameState.LOBBY then
         self:_stopAmbient()
+        self:_stopTeamSelectionMusic()
+    end
+end
+
+--[[
+    Handle gameplay phase changes
+]]
+function AudioService:_onPhaseChanged(phase: string)
+    if phase == Enums.GameplayPhase.ACTIVE then
+        -- Start ambient music and play round start sound when seeker is released
+        self:PlaySoundForAll("RoundStart")
+        self:_startAmbient()
+    end
+end
+
+--[[
+    Handle countdown ticks for audio
+    Plays during COUNTDOWN, HIDING, and last 15 seconds of ACTIVE phase
+]]
+function AudioService:_onCountdownTick(_seconds: number, _phase: string)
+    self:PlaySoundForAll("Countdown")
+end
+
+--[[
+    Handle round end for victory sounds
+]]
+function AudioService:_onRoundEnded(results: any)
+    -- Play round end sound
+    self:PlaySoundForAll("RoundEnd")
+
+    -- Play winner-specific sound
+    if results.winner == Enums.WinnerTeam.Seekers then
+        self:PlaySoundForAll("SeekerWin")
+    else
+        self:PlaySoundForAll("RunnerWin")
     end
 end
 
@@ -134,7 +202,7 @@ function AudioService:PlaySoundAtPlayer(player: Player, soundName: string)
 end
 
 --[[
-    Start ambient sounds
+    Start ambient/gameplay music
 ]]
 function AudioService:_startAmbient()
     if self._sounds.Ambient and not self._sounds.Ambient.Playing then
@@ -143,7 +211,7 @@ function AudioService:_startAmbient()
 end
 
 --[[
-    Stop ambient sounds
+    Stop ambient/gameplay music
 ]]
 function AudioService:_stopAmbient()
     if self._sounds.Ambient and self._sounds.Ambient.Playing then
@@ -152,15 +220,21 @@ function AudioService:_stopAmbient()
 end
 
 --[[
-    Play round end sound based on winner
+    Start team selection music
 ]]
-function AudioService:PlayRoundEndSound(winner: string)
-    if winner == Enums.WinnerTeam.Seekers then
-        self:PlaySoundForAll("SeekerWin")
-    else
-        self:PlaySoundForAll("RunnerWin")
+function AudioService:_startTeamSelectionMusic()
+    if self._sounds.TeamSelection and not self._sounds.TeamSelection.Playing then
+        self._sounds.TeamSelection:Play()
     end
-    self:PlaySoundForAll("RoundEnd")
+end
+
+--[[
+    Stop team selection music
+]]
+function AudioService:_stopTeamSelectionMusic()
+    if self._sounds.TeamSelection and self._sounds.TeamSelection.Playing then
+        self._sounds.TeamSelection:Stop()
+    end
 end
 
 -- Client methods (for UI sounds, etc.)

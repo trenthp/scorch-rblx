@@ -3,7 +3,8 @@
     "allow": [
       "WebSearch",
       "WebFetch(domain:rojo.space)",
-      "WebFetch(domain:wally.run)"
+      "WebFetch(domain:wally.run)",
+      "WebFetch(domain:create.roblox.com)"
     ]
   }
 }

@@ -8,9 +8,15 @@ local Enums = {
     GameState = {
         LOBBY = "LOBBY",
         TEAM_SELECTION = "TEAM_SELECTION",
-        COUNTDOWN = "COUNTDOWN",
         GAMEPLAY = "GAMEPLAY",
         RESULTS = "RESULTS",
+    },
+
+    -- Internal phases within GAMEPLAY state
+    GameplayPhase = {
+        COUNTDOWN = "COUNTDOWN",       -- Initial countdown (5 seconds)
+        HIDING = "HIDING",             -- Runners hide (15 seconds), seekers still frozen
+        ACTIVE = "ACTIVE",             -- Main gameplay (3 minutes)
     },
 
     PlayerRole = {

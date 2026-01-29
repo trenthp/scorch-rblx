@@ -39,12 +39,10 @@ function GameStateController:KnitStart()
         self:_onStateChanged(newState, oldState)
     end)
 
-    -- Listen for team assignment
-    TeamService.TeamAssigned:Connect(function(player, role)
-        if player == LocalPlayer then
-            self._myRole = role
-            print(string.format("[GameStateController] My role: %s", role))
-        end
+    -- Listen for team assignment (Knit fires to specific player, so we only receive role)
+    TeamService.TeamAssigned:Connect(function(role)
+        self._myRole = role
+        print(string.format("[GameStateController] My role: %s", role))
     end)
 
     -- Get initial state

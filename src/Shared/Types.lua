@@ -4,7 +4,9 @@
     Shared type definitions for Scorch
 ]]
 
-export type GameState = "LOBBY" | "TEAM_SELECTION" | "COUNTDOWN" | "GAMEPLAY" | "RESULTS"
+export type GameState = "LOBBY" | "TEAM_SELECTION" | "GAMEPLAY" | "RESULTS"
+
+export type GameplayPhase = "COUNTDOWN" | "HIDING" | "ACTIVE"
 
 export type PlayerRole = "Seeker" | "Runner" | "Spectator"
 
