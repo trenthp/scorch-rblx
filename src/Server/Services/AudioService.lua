@@ -20,11 +20,11 @@ local SOUND_IDS = {
     Countdown = "rbxassetid://9125402735",      -- Countdown beep/tick
 
     -- Round transition sounds
-    TeamSelection = "rbxassetid://101228531956240",  -- Team selection music/jingle
+    TeamSelection = "rbxassetid://79221349951511",  -- Team selection music/jingle
     RoundStart = "rbxassetid://9125402735",     -- Round start horn/signal
     RoundEnd = "rbxassetid://9125402735",       -- Round end sound
     SeekerWin = "rbxassetid://101228531956240",      -- Seekers victory
-    RunnerWin = "rbxassetid://101228531956240",      -- Runners victory
+    RunnerWin = "rbxassetid://79221349951511",      -- Runners victory
 
     -- Gameplay sounds
     Freeze = "rbxassetid://128004921736980",         -- Player frozen

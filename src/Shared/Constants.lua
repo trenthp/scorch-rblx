@@ -45,6 +45,21 @@ local Constants = {
     RUNNER_SPAWN_TAG = "RunnerSpawn",
     LOBBY_SPAWN_TAG = "LobbySpawn",
 
+    -- Scenery settings
+    SCENERY = {
+        AUTO_GENERATE = true,            -- Generate scenery on game start
+        SEED = nil,                       -- nil = random seed each time, or set number for consistent generation
+        DENSITY = 0.8,                    -- Objects per 100 square studs (higher = more dense)
+        MIN_SPACING = 4,                  -- Minimum studs between scenery objects
+        BOUNDS = {                        -- Play area boundaries for scenery generation
+            min = Vector3.new(-150, 0, -150),
+            max = Vector3.new(150, 0, 150),
+        },
+        SPAWN_EXCLUSION_RADIUS = 15,     -- Keep scenery away from spawn points
+        HIDING_BUSH_COUNT = 20,          -- Number of hiding bushes to place
+        HIDING_BUSH_MIN_SPACING = 25,    -- Minimum distance between hiding bushes
+    },
+
     -- Network events
     EVENTS = {
         GAME_STATE_CHANGED = "GameStateChanged",
