@@ -60,6 +60,48 @@ local Constants = {
         HIDING_BUSH_MIN_SPACING = 25,    -- Minimum distance between hiding bushes
     },
 
+    -- Hiding mechanics
+    HIDING = {
+        DETECTION_RADIUS = 8,            -- How close to bush center to count as hiding (doubled for larger bushes)
+        MAX_HIDE_TIME = 15,              -- Seconds before forced out of bush
+        WARNING_TIME = 5,                -- Seconds before max time to show warning
+        CHECK_RATE = 0.1,                -- How often to check hiding state
+
+        -- Bush glow mechanics (anti-camping)
+        GLOW_START_TIME = 8,             -- Seconds before bush starts glowing
+        GLOW_MAX_TIME = 15,              -- Seconds to reach full glow (matches MAX_HIDE_TIME)
+        GLOW_COOLDOWN = 10,              -- Seconds for bush heat to fully decay when empty
+        GLOW_COLOR = Color3.fromRGB(255, 180, 80),  -- Warm amber glow
+        GLOW_MAX_BRIGHTNESS = 1.5,       -- Maximum PointLight brightness
+        GLOW_MAX_EMISSION = 0.6,         -- Maximum part surface emission
+    },
+
+    -- Crouch mechanics (runners only)
+    CROUCH = {
+        HIP_HEIGHT_MULTIPLIER = 0.4,     -- How much to lower stance (40% of normal)
+        SPEED_MULTIPLIER = 0.5,          -- Movement speed while crouching (50%)
+        DETECTION_HEIGHT_OFFSET = -1.5,  -- Lower flashlight detection point when crouching
+        TWEEN_TIME = 0.2,                -- Transition time in seconds
+    },
+
+    -- Lobby settings
+    LOBBY = {
+        HEIGHT = 120,                    -- Studs above ground
+        PLATFORM_SIZE = 80,              -- Platform width/length in studs
+        WALL_HEIGHT = 15,                -- Railing/wall height
+        FADE_TIME = 0.5,                 -- Transition fade duration in seconds
+    },
+
+    -- Boundary zone settings
+    BOUNDARY = {
+        PLAY_AREA_RADIUS = 150,          -- Safe play area (-150 to 150)
+        FREEZE_ZONE_RADIUS = 200,        -- Freeze zone (150 to 200)
+        WALL_RADIUS = 205,               -- Invisible wall position
+        FREEZE_RATE = 20,                -- Cold % gained per second in zone
+        THAW_RATE = 10,                  -- Cold % lost per second when back in play area
+        CHECK_RATE = 0.1,                -- How often to check player position
+    },
+
     -- Network events
     EVENTS = {
         GAME_STATE_CHANGED = "GameStateChanged",

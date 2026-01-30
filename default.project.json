@@ -52,6 +52,133 @@
           "TopSurface": "Smooth",
           "BottomSurface": "Smooth"
         }
+      },
+      "Lobby": {
+        "$className": "Model",
+        "Floor": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "Floor",
+            "Size": [80, 2, 80],
+            "Position": [0, 120, 0],
+            "Anchored": true,
+            "Transparency": 0.5,
+            "BrickColor": { "BrickColor": 1 },
+            "Material": "Glass",
+            "TopSurface": "Smooth",
+            "BottomSurface": "Smooth"
+          }
+        },
+        "WallNorth": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "WallNorth",
+            "Size": [80, 15, 2],
+            "Position": [0, 128.5, -39],
+            "Anchored": true,
+            "Transparency": 1,
+            "CanCollide": true
+          }
+        },
+        "WallSouth": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "WallSouth",
+            "Size": [80, 15, 2],
+            "Position": [0, 128.5, 39],
+            "Anchored": true,
+            "Transparency": 1,
+            "CanCollide": true
+          }
+        },
+        "WallEast": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "WallEast",
+            "Size": [2, 15, 80],
+            "Position": [39, 128.5, 0],
+            "Anchored": true,
+            "Transparency": 1,
+            "CanCollide": true
+          }
+        },
+        "WallWest": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "WallWest",
+            "Size": [2, 15, 80],
+            "Position": [-39, 128.5, 0],
+            "Anchored": true,
+            "Transparency": 1,
+            "CanCollide": true
+          }
+        },
+        "LobbySpawn": {
+          "$className": "SpawnLocation",
+          "$properties": {
+            "Name": "LobbySpawn",
+            "Size": [6, 1, 6],
+            "Position": [0, 121.5, 0],
+            "Anchored": true,
+            "Transparency": 1,
+            "Enabled": true,
+            "Neutral": true
+          }
+        },
+        "Signs": {
+          "$className": "Folder"
+        }
+      },
+      "BoundaryWalls": {
+        "$className": "Folder",
+        "WallNorth": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "WallNorth",
+            "Size": [410, 100, 4],
+            "Position": [0, 50, -205],
+            "Anchored": true,
+            "Transparency": 1,
+            "CanCollide": true,
+            "Material": "SmoothPlastic"
+          }
+        },
+        "WallSouth": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "WallSouth",
+            "Size": [410, 100, 4],
+            "Position": [0, 50, 205],
+            "Anchored": true,
+            "Transparency": 1,
+            "CanCollide": true,
+            "Material": "SmoothPlastic"
+          }
+        },
+        "WallEast": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "WallEast",
+            "Size": [4, 100, 410],
+            "Position": [205, 50, 0],
+            "Anchored": true,
+            "Transparency": 1,
+            "CanCollide": true,
+            "Material": "SmoothPlastic"
+          }
+        },
+        "WallWest": {
+          "$className": "Part",
+          "$properties": {
+            "Name": "WallWest",
+            "Size": [4, 100, 410],
+            "Position": [-205, 50, 0],
+            "Anchored": true,
+            "Transparency": 1,
+            "CanCollide": true,
+            "Material": "SmoothPlastic"
+          }
+        }
       }
     },
     "Lighting": {

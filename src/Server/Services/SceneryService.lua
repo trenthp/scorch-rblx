@@ -34,8 +34,8 @@ local SCENERY_TEMPLATES = {
     -- Trees (various sizes)
     Tree_Large = {
         weight = 15,
-        minScale = 0.8,
-        maxScale = 1.2,
+        minScale = 1.6,
+        maxScale = 2.4,
         groundOffset = 0,
         create = function(random: Random): Model
             return SceneryService:_createTree(random, "large")
@@ -43,8 +43,8 @@ local SCENERY_TEMPLATES = {
     },
     Tree_Medium = {
         weight = 25,
-        minScale = 0.7,
-        maxScale = 1.0,
+        minScale = 1.4,
+        maxScale = 2.0,
         groundOffset = 0,
         create = function(random: Random): Model
             return SceneryService:_createTree(random, "medium")
@@ -52,8 +52,8 @@ local SCENERY_TEMPLATES = {
     },
     Tree_Small = {
         weight = 20,
-        minScale = 0.5,
-        maxScale = 0.8,
+        minScale = 1.0,
+        maxScale = 1.6,
         groundOffset = 0,
         create = function(random: Random): Model
             return SceneryService:_createTree(random, "small")
@@ -62,27 +62,27 @@ local SCENERY_TEMPLATES = {
     -- Rocks
     Rock_Large = {
         weight = 10,
-        minScale = 0.8,
-        maxScale = 1.5,
-        groundOffset = -0.5,
+        minScale = 1.6,
+        maxScale = 3.0,
+        groundOffset = -1.0,
         create = function(random: Random): Model
             return SceneryService:_createRock(random, "large")
         end,
     },
     Rock_Medium = {
         weight = 20,
-        minScale = 0.5,
-        maxScale = 1.0,
-        groundOffset = -0.3,
+        minScale = 1.0,
+        maxScale = 2.0,
+        groundOffset = -0.6,
         create = function(random: Random): Model
             return SceneryService:_createRock(random, "medium")
         end,
     },
     Rock_Small = {
         weight = 25,
-        minScale = 0.3,
-        maxScale = 0.7,
-        groundOffset = -0.2,
+        minScale = 0.6,
+        maxScale = 1.4,
+        groundOffset = -0.4,
         create = function(random: Random): Model
             return SceneryService:_createRock(random, "small")
         end,
@@ -90,9 +90,9 @@ local SCENERY_TEMPLATES = {
     -- Bushes
     Bush = {
         weight = 30,
-        minScale = 0.6,
-        maxScale = 1.2,
-        groundOffset = -0.2,
+        minScale = 1.2,
+        maxScale = 2.4,
+        groundOffset = -0.4,
         create = function(random: Random): Model
             return SceneryService:_createBush(random)
         end,
@@ -100,8 +100,8 @@ local SCENERY_TEMPLATES = {
     -- Fallen logs
     FallenLog = {
         weight = 8,
-        minScale = 0.7,
-        maxScale = 1.3,
+        minScale = 1.4,
+        maxScale = 2.6,
         groundOffset = 0,
         create = function(random: Random): Model
             return SceneryService:_createFallenLog(random)
@@ -120,8 +120,8 @@ local SCENERY_TEMPLATES = {
     -- Tall grass patches
     TallGrass = {
         weight = 35,
-        minScale = 0.6,
-        maxScale = 1.0,
+        minScale = 1.2,
+        maxScale = 2.0,
         groundOffset = 0,
         create = function(random: Random): Model
             return SceneryService:_createTallGrass(random)
@@ -130,8 +130,8 @@ local SCENERY_TEMPLATES = {
     -- Stumps
     Stump = {
         weight = 10,
-        minScale = 0.6,
-        maxScale = 1.0,
+        minScale = 1.2,
+        maxScale = 2.0,
         groundOffset = 0,
         create = function(random: Random): Model
             return SceneryService:_createStump(random)
@@ -148,14 +148,52 @@ function SceneryService:KnitInit()
         self._sceneryFolder.Parent = Workspace
     end
 
+    -- Ensure baseplate exists for ground detection
+    self:_ensureBaseplate()
+
     self._random = Random.new(Constants.SCENERY.SEED or os.time())
     print("[SceneryService] Initialized")
+end
+
+--[[
+    Ensure a baseplate exists for scenery to spawn on
+    Creates one if it doesn't exist (fallback for non-Rojo environments)
+]]
+function SceneryService:_ensureBaseplate()
+    local baseplate = Workspace:FindFirstChild("Baseplate")
+    if baseplate then
+        print("[SceneryService] Found existing Baseplate")
+        return
+    end
+
+    -- Wait briefly for Rojo sync
+    baseplate = Workspace:WaitForChild("Baseplate", 2)
+    if baseplate then
+        print("[SceneryService] Baseplate loaded")
+        return
+    end
+
+    -- Create fallback baseplate
+    print("[SceneryService] Creating fallback Baseplate")
+    local part = Instance.new("Part")
+    part.Name = "Baseplate"
+    part.Size = Vector3.new(512, 4, 512)
+    part.Position = Vector3.new(0, -2, 0)
+    part.Anchored = true
+    part.BrickColor = BrickColor.new(28) -- Dark green
+    part.Material = Enum.Material.Grass
+    part.TopSurface = Enum.SurfaceType.Smooth
+    part.BottomSurface = Enum.SurfaceType.Smooth
+    part.Parent = Workspace
 end
 
 function SceneryService:KnitStart()
     -- Generate scenery on start if auto-generate is enabled
     if Constants.SCENERY.AUTO_GENERATE then
-        self:GenerateScenery()
+        -- Small delay to ensure world is ready
+        task.defer(function()
+            self:GenerateScenery()
+        end)
     end
     print("[SceneryService] Started")
 end
@@ -180,7 +218,16 @@ function SceneryService:GenerateScenery(config: SceneryConfig?)
     local areaSize = (maxPos.X - minPos.X) * (maxPos.Z - minPos.Z)
     local objectCount = math.floor(areaSize * density / 100)
 
-    print(string.format("[SceneryService] Generating %d scenery objects...", objectCount))
+    print(string.format("[SceneryService] Generating %d scenery objects in area (%.0f, %.0f) to (%.0f, %.0f)...",
+        objectCount, minPos.X, minPos.Z, maxPos.X, maxPos.Z))
+
+    -- Verify ground exists
+    local testGroundY = self:_findGroundHeight(0, 0)
+    if testGroundY then
+        print(string.format("[SceneryService] Ground detected at Y = %.2f", testGroundY))
+    else
+        warn("[SceneryService] No ground detected at origin! Scenery may not spawn.")
+    end
 
     -- Calculate total weight for weighted random selection
     local totalWeight = 0
@@ -252,11 +299,11 @@ function SceneryService:_generateHidingBushes(bounds: { min: Vector3, max: Vecto
         if groundY then
             local position = Vector3.new(x, groundY, z)
 
-            -- Check spacing from other scenery AND other hiding bushes
-            if self:_checkSpacing(position, minSpacing) then
+            -- Check spacing from other HIDING BUSHES only (not small decorative scenery)
+            if self:_checkHidingBushSpacing(position, minSpacing) then
                 local bush = self:_createHidingBush(self._random)
                 if bush then
-                    local scale = self._random:NextNumber(0.9, 1.2)
+                    local scale = self._random:NextNumber(1.8, 2.4)
                     self:_scaleModel(bush, scale)
 
                     local rotation = self._random:NextNumber(0, math.pi * 2)
@@ -303,13 +350,23 @@ function SceneryService:_findGroundHeight(x: number, z: number): number?
     local rayOrigin = Vector3.new(x, 500, z)
     local rayDirection = Vector3.new(0, -1000, 0)
 
+    -- Exclude scenery folder and lobby from raycast
+    local excludeList: { Instance } = { self._sceneryFolder :: Instance }
+    local lobby = Workspace:FindFirstChild("Lobby")
+    if lobby then
+        table.insert(excludeList, lobby)
+    end
+
     local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = { self._sceneryFolder :: Instance }
+    raycastParams.FilterDescendantsInstances = excludeList
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
     local result = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
     if result then
-        return result.Position.Y
+        -- Only accept ground level (below Y=50 to avoid lobby platform)
+        if result.Position.Y < 50 then
+            return result.Position.Y
+        end
     end
     return nil
 end
@@ -327,6 +384,66 @@ function SceneryService:_checkSpacing(position: Vector3, minSpacing: number): bo
         if child:IsA("Model") and child.PrimaryPart then
             local distance = (child.PrimaryPart.Position - position).Magnitude
             if distance < minSpacing then
+                return false
+            end
+        end
+    end
+
+    -- Check distance from spawn points
+    local spawnExclusion = Constants.SCENERY.SPAWN_EXCLUSION_RADIUS
+    local spawnTags = { Constants.SEEKER_SPAWN_TAG, Constants.RUNNER_SPAWN_TAG, Constants.LOBBY_SPAWN_TAG }
+
+    for _, tag in spawnTags do
+        for _, spawn in CollectionService:GetTagged(tag) do
+            if spawn:IsA("BasePart") then
+                local distance = (spawn.Position - position).Magnitude
+                if distance < spawnExclusion then
+                    return false
+                end
+            end
+        end
+    end
+
+    -- Also check SpawnPoints folder
+    local spawnFolder = Workspace:FindFirstChild("SpawnPoints")
+    if spawnFolder then
+        for _, spawn in spawnFolder:GetChildren() do
+            if spawn:IsA("BasePart") then
+                local distance = (spawn.Position - position).Magnitude
+                if distance < spawnExclusion then
+                    return false
+                end
+            end
+        end
+    end
+
+    return true
+end
+
+--[[
+    Check spacing for hiding bushes - only checks against other hiding bushes and spawns
+    (not against small decorative scenery like mushrooms, grass, etc.)
+]]
+function SceneryService:_checkHidingBushSpacing(position: Vector3, minSpacing: number): boolean
+    if not self._sceneryFolder then
+        return true
+    end
+
+    -- Check distance from other HIDING BUSHES only
+    for _, child in self._sceneryFolder:GetChildren() do
+        if child:IsA("Model") and child.Name == "HidingBush" and child.PrimaryPart then
+            local distance = (child.PrimaryPart.Position - position).Magnitude
+            if distance < minSpacing then
+                return false
+            end
+        end
+    end
+
+    -- Check distance from large trees (don't place hiding bush inside a tree)
+    for _, child in self._sceneryFolder:GetChildren() do
+        if child:IsA("Model") and string.find(child.Name, "Tree_") and child.PrimaryPart then
+            local distance = (child.PrimaryPart.Position - position).Magnitude
+            if distance < 8 then -- Don't place within 8 studs of a tree trunk
                 return false
             end
         end

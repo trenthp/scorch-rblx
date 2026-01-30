@@ -582,6 +582,9 @@ function UIController:_updateStatusBar()
     local state = self._currentState
     local phase = self._currentPhase
 
+    -- Default to visible (LOBBY state will hide it)
+    bar.Visible = true
+
     -- During ACTIVE gameplay phase, show role + timer
     if state == Enums.GameState.GAMEPLAY and phase == Enums.GameplayPhase.ACTIVE then
         status.Visible = false
@@ -602,9 +605,9 @@ function UIController:_updateStatusBar()
         stroke.Color = Theme.SurfaceLight
 
         if state == Enums.GameState.LOBBY then
-            status.Text = string.format("Waiting for players (%d min)", Constants.MIN_PLAYERS)
-            status.TextColor3 = Theme.TextSecondary
-            bar.Size = UDim2.new(0, 200, 0, 48)
+            -- Hide status bar during lobby - lobby has its own status display
+            bar.Visible = false
+            return
         elseif state == Enums.GameState.TEAM_SELECTION then
             status.Text = "Starting in..."
             status.TextColor3 = Theme.TextSecondary
@@ -623,7 +626,7 @@ function UIController:_updateStatusBar()
         elseif state == Enums.GameState.RESULTS then
             status.Text = "Round Over"
             status.TextColor3 = Theme.TextSecondary
-            bar.Size = UDim2.new(0, 140, 0, 48)
+            bar.Size = UDim2.new(0, 180, 0, 48)
         else
             status.Text = state
             status.TextColor3 = Theme.TextSecondary
@@ -636,8 +639,17 @@ end
 
 function UIController:_updateTeamSelectionCountdown(seconds: number)
     local status = self._elements.status
-    if status and self._currentState == Enums.GameState.TEAM_SELECTION then
+    local bar = self._elements.statusBar
+    if not status or not bar then return end
+
+    if self._currentState == Enums.GameState.TEAM_SELECTION then
         status.Text = string.format("Starting in %d...", seconds)
+    elseif self._currentState == Enums.GameState.RESULTS then
+        -- Show countdown to next round during results
+        status.Text = string.format("Next round in %d...", seconds)
+        status.TextColor3 = Theme.TextSecondary
+        bar.Size = UDim2.new(0, 180, 0, 48)
+        bar.Position = UDim2.new(0.5, -90, 0, 12)
     end
 end
 

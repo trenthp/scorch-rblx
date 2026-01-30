@@ -534,11 +534,16 @@ function FlashlightService:_processFlashlightDetection()
                 continue
             end
 
-            -- Get target position
+            -- Get target position (adjusted for crouching)
             local targetPos = ConeDetection.GetCharacterTargetPosition(runnerCharacter)
             if not targetPos then
                 continue
             end
+
+            -- Lower detection point if runner is crouching
+            local CrouchService = Knit.GetService("CrouchService")
+            local crouchOffset = CrouchService:GetDetectionHeightOffset(runner)
+            targetPos = targetPos + Vector3.new(0, crouchOffset, 0)
 
             -- Add runner to ignore list for LOS check
             local fullIgnoreList = table.clone(ignoreList)

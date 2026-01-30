@@ -66,6 +66,7 @@ end
 --[[
     Initialize seeker tracking for a new player
     New players get the average wait time of existing players so they're treated fairly
+    Also assigns them to Lobby team if joining during GAMEPLAY or TEAM_SELECTION
 ]]
 function TeamService:_initializePlayerSeekerTracking(player: Player)
     -- Calculate average rounds-since-seeker for existing players
@@ -80,8 +81,23 @@ function TeamService:_initializePlayerSeekerTracking(player: Player)
     local averageWait = count > 0 and math.floor(total / count) or 0
     self._roundsSinceSeeker[player.UserId] = averageWait
 
-    print(string.format("[TeamService] Initialized seeker tracking for %s with wait: %d",
-        player.Name, averageWait))
+    -- If game is in progress, assign late joiner to Lobby team as spectator
+    local GameStateService = Knit.GetService("GameStateService")
+    local currentState = GameStateService:GetState()
+
+    if currentState == Enums.GameState.GAMEPLAY or currentState == Enums.GameState.TEAM_SELECTION then
+        local lobbyTeam = Teams:FindFirstChild("Lobby") :: Team?
+        if lobbyTeam then
+            player.Team = lobbyTeam
+        end
+        -- Notify client they're a spectator
+        self.Client.TeamAssigned:Fire(player, Enums.PlayerRole.Spectator)
+        print(string.format("[TeamService] Late joiner %s assigned as spectator (waited %d rounds for next game)",
+            player.Name, averageWait))
+    else
+        print(string.format("[TeamService] Initialized seeker tracking for %s with wait: %d",
+            player.Name, averageWait))
+    end
 end
 
 --[[

@@ -197,6 +197,42 @@ function MapService:GetRandomLobbySpawn(): BasePart?
     return self._lobbySpawns[math.random(1, #self._lobbySpawns)]
 end
 
+--[[
+    Spawn a player at a seeker spawn point
+]]
+function MapService:SpawnPlayerAtSeeker(player: Player)
+    local spawn = self:GetRandomSeekerSpawn()
+    if spawn then
+        self:_spawnPlayerAt(player, spawn)
+    else
+        warn("[MapService] No seeker spawn found for " .. player.Name)
+    end
+end
+
+--[[
+    Spawn a player at a runner spawn point
+]]
+function MapService:SpawnPlayerAtRunner(player: Player)
+    local spawn = self:GetRandomRunnerSpawn()
+    if spawn then
+        self:_spawnPlayerAt(player, spawn)
+    else
+        warn("[MapService] No runner spawn found for " .. player.Name)
+    end
+end
+
+--[[
+    Spawn a player at a lobby spawn point
+]]
+function MapService:SpawnPlayerAtLobby(player: Player)
+    local spawn = self:GetRandomLobbySpawn()
+    if spawn then
+        self:_spawnPlayerAt(player, spawn)
+    else
+        warn("[MapService] No lobby spawn found for " .. player.Name)
+    end
+end
+
 -- Client methods
 function MapService.Client:GetSpawnCounts(): { seeker: number, runner: number, lobby: number }
     return {
