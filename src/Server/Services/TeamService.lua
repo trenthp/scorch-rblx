@@ -123,12 +123,14 @@ end
     Finalize team assignments
     Called when team selection timer ends
     Uses fair selection to ensure all players get turns as seeker
+    Only selects from queued/in-game players
 ]]
 function TeamService:FinalizeTeams()
-    local allPlayers = Players:GetPlayers()
+    local QueueService = Knit.GetService("QueueService")
+    local allPlayers = QueueService:GetQueuedOrInGamePlayers()
 
     if #allPlayers < Constants.MIN_PLAYERS then
-        print("[TeamService] Not enough players to finalize teams")
+        print("[TeamService] Not enough queued players to finalize teams")
         return
     end
 
@@ -252,6 +254,13 @@ function TeamService:IsRunner(player: Player): boolean
 end
 
 --[[
+    Check if a player is in the current game (seeker or runner)
+]]
+function TeamService:IsInGame(player: Player): boolean
+    return self:IsSeeker(player) or self:IsRunner(player)
+end
+
+--[[
     Get all seekers
 ]]
 function TeamService:GetSeekers(): { Player }
@@ -284,9 +293,17 @@ function TeamService:ResetTeams()
 end
 
 --[[
-    Handle player leaving the game
+    Handle player leaving the game (disconnect or voluntary leave)
 ]]
 function TeamService:_handlePlayerLeave(player: Player)
+    self:RemovePlayerFromRound(player)
+end
+
+--[[
+    Remove a player from the current round
+    Called on disconnect or when player voluntarily leaves mid-game
+]]
+function TeamService:RemovePlayerFromRound(player: Player)
     local seekerIndex = table.find(self._seekers, player)
     if seekerIndex then
         table.remove(self._seekers, seekerIndex)
@@ -296,6 +313,15 @@ function TeamService:_handlePlayerLeave(player: Player)
     if runnerIndex then
         table.remove(self._runners, runnerIndex)
     end
+
+    -- Move player to lobby team
+    local lobbyTeam = Teams:FindFirstChild("Lobby") :: Team?
+    if lobbyTeam and player.Parent then
+        player.Team = lobbyTeam
+    end
+
+    -- Notify clients
+    self.Client.TeamsUpdated:FireAll(self:_serializeTeams())
 
     -- Check if game should end due to no seekers or runners
     local GameStateService = Knit.GetService("GameStateService")

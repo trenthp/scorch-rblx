@@ -101,18 +101,40 @@ function GameStateService:_onStateEnter(state: string)
 end
 
 --[[
-    Check if there are enough players to start
+    Check if there are enough queued players to start
 ]]
 function GameStateService:_startLobbyCheck()
     task.spawn(function()
+        -- Wait a moment for all services to be fully started
+        task.wait(0.5)
+
+        print("[GameStateService] Starting lobby check loop")
+
         while self._currentState == Enums.GameState.LOBBY do
-            local playerCount = #Players:GetPlayers()
-            if playerCount >= Constants.MIN_PLAYERS then
-                self:SetState(Enums.GameState.TEAM_SELECTION)
-                return
+            local success, result = pcall(function()
+                local QueueService = Knit.GetService("QueueService")
+                return QueueService:GetQueuedCount()
+            end)
+
+            if success then
+                local queuedCount = result
+                print(string.format("[GameStateService] Lobby check: %d queued players (need %d)", queuedCount, Constants.MIN_PLAYERS))
+
+                if queuedCount >= Constants.MIN_PLAYERS then
+                    local QueueService = Knit.GetService("QueueService")
+                    -- Mark queued players as in game before transitioning
+                    QueueService:MarkQueuedAsInGame()
+                    self:SetState(Enums.GameState.TEAM_SELECTION)
+                    return
+                end
+            else
+                warn("[GameStateService] Failed to get queue count:", result)
             end
+
             task.wait(1)
         end
+
+        print("[GameStateService] Lobby check loop ended (state changed)")
     end)
 end
 
@@ -187,9 +209,15 @@ function GameStateService:_exitResults()
     local TeamService = Knit.GetService("TeamService")
     TeamService:ResetTeams()
 
-    -- Check player count before returning to appropriate state
-    local playerCount = #Players:GetPlayers()
-    if playerCount >= Constants.MIN_PLAYERS then
+    -- Mark InGame players as Queued (they stay in queue for next round)
+    local QueueService = Knit.GetService("QueueService")
+    QueueService:MarkInGameAsQueued()
+
+    -- Check queued player count before returning to appropriate state
+    local queuedCount = QueueService:GetQueuedCount()
+    if queuedCount >= Constants.MIN_PLAYERS then
+        -- Mark queued players as in game before transitioning
+        QueueService:MarkQueuedAsInGame()
         self:SetState(Enums.GameState.TEAM_SELECTION)
     else
         self:SetState(Enums.GameState.LOBBY)

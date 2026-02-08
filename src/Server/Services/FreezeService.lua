@@ -203,7 +203,16 @@ function FreezeService:RequestUnfreeze(player: Player, targetPlayer: Player)
     end
 
     local distance = (playerRoot.Position - targetRoot.Position).Magnitude
-    if distance > Constants.UNFREEZE_TOUCH_DISTANCE then
+    local rescueDistance = Constants.UNFREEZE_TOUCH_DISTANCE
+
+    -- Rescue power-up increases touch distance
+    local BatteryService = Knit.GetService("BatteryService")
+    if BatteryService:HasEffect(player, "Rescue") then
+        local multiplier = BatteryService:GetEffectMultiplier(player, "Rescue")
+        rescueDistance = rescueDistance * multiplier
+    end
+
+    if distance > rescueDistance then
         return false
     end
 

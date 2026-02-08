@@ -47,7 +47,7 @@ function PlayerStateService:KnitStart()
     end)
 
     Players.PlayerRemoving:Connect(function(player)
-        self._playerStates[player] = nil
+        self:_cleanupPlayer(player)
     end)
 
     -- Initialize existing players
@@ -56,6 +56,47 @@ function PlayerStateService:KnitStart()
     end
 
     print("[PlayerStateService] Started")
+end
+
+--[[
+    Clean up player state (called on disconnect or mid-game leave)
+]]
+function PlayerStateService:_cleanupPlayer(player: Player)
+    local state = self._playerStates[player]
+    if state and state.freezeState == Enums.FreezeState.Frozen then
+        -- Notify clients that player was unfrozen (left game)
+        self.Client.PlayerUnfrozen:FireAll(player, player)
+    end
+    self._playerStates[player] = nil
+end
+
+--[[
+    Handle player leaving game mid-round
+    Called by QueueService when player voluntarily leaves
+]]
+function PlayerStateService:HandlePlayerLeaveGame(player: Player)
+    local state = self._playerStates[player]
+    if not state then
+        return
+    end
+
+    -- If player was frozen, unfreeze them before cleanup
+    if state.freezeState == Enums.FreezeState.Frozen then
+        self:_applyFreezeToCharacter(player, false)
+        self.Client.PlayerUnfrozen:FireAll(player, player)
+        self.Client.StateChanged:Fire(player, Enums.FreezeState.Active)
+    end
+
+    -- Reset their state
+    self._playerStates[player] = {
+        freezeState = Enums.FreezeState.Active,
+        frozenBy = nil,
+        frozenAt = nil,
+    }
+
+    -- Remove from team and check win conditions
+    local TeamService = Knit.GetService("TeamService")
+    TeamService:RemovePlayerFromRound(player)
 end
 
 --[[
@@ -83,6 +124,22 @@ function PlayerStateService:FreezePlayer(player: Player, frozenBy: Player)
     -- Already frozen, ignore
     if state.freezeState == Enums.FreezeState.Frozen then
         return
+    end
+
+    -- Check for Shield effect (blocks freeze for runners)
+    local BatteryService = Knit.GetService("BatteryService")
+    if BatteryService:HasEffect(player, "Shield") then
+        -- Consume the shield and block the freeze
+        BatteryService:ConsumeShield(player, true)  -- true = defensive use
+        print(string.format("[PlayerStateService] %s's shield blocked freeze from %s", player.Name, frozenBy.Name))
+        return
+    end
+
+    -- Check if seeker has Shield effect (instant freeze)
+    if BatteryService:HasEffect(frozenBy, "Shield") then
+        -- Consume the shield for instant freeze bonus
+        BatteryService:ConsumeShield(frozenBy, false)  -- false = offensive use
+        print(string.format("[PlayerStateService] %s used shield for instant freeze on %s", frozenBy.Name, player.Name))
     end
 
     state.freezeState = Enums.FreezeState.Frozen

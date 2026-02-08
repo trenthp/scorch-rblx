@@ -16,6 +16,8 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Knit = require(Packages:WaitForChild("Knit"))
@@ -24,6 +26,10 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Enums = require(Shared:WaitForChild("Enums"))
 
 local LocalPlayer = Players.LocalPlayer
+
+-- Keyboard shortcuts
+local FLASHLIGHT_KEY = Enum.KeyCode.F
+local FLASHLIGHT_KEY_ALT = Enum.KeyCode.One
 
 local FlashlightController = Knit.CreateController({
     Name = "FlashlightController",
@@ -37,6 +43,9 @@ local FlashlightController = Knit.CreateController({
 })
 
 function FlashlightController:KnitInit()
+    -- Disable the default backpack UI so our button doesn't interfere
+    StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+
     self:_createFlashlightButton()
     print("[FlashlightController] Initialized")
 end
@@ -44,6 +53,16 @@ end
 function FlashlightController:KnitStart()
     local FlashlightService = Knit.GetService("FlashlightService")
     local GameStateController = Knit.GetController("GameStateController")
+
+    -- Handle keyboard input
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then
+            return
+        end
+        if input.KeyCode == FLASHLIGHT_KEY or input.KeyCode == FLASHLIGHT_KEY_ALT then
+            self:_toggleFlashlight()
+        end
+    end)
 
     -- Listen for flashlight toggle events from server
     FlashlightService.FlashlightToggled:Connect(function(player, enabled)
@@ -100,12 +119,12 @@ function FlashlightController:_createFlashlightButton()
     gui.ResetOnSpawn = false
     gui.DisplayOrder = 10
 
-    -- Button (same position as crouch button - bottom right)
+    -- Button (tool position - bottom center)
     local button = Instance.new("ImageButton")
     button.Name = "FlashlightButton"
     button.Size = UDim2.fromOffset(70, 70)
-    button.Position = UDim2.new(1, -90, 1, -180)
-    button.AnchorPoint = Vector2.new(0.5, 0.5)
+    button.Position = UDim2.new(0.5, 0, 1, -50)
+    button.AnchorPoint = Vector2.new(0.5, 1)
     button.BackgroundColor3 = Color3.fromRGB(80, 60, 40)
     button.BackgroundTransparency = 0.3
     button.Visible = false

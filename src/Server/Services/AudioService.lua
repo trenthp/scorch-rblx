@@ -2,6 +2,7 @@
 --[[
     AudioService.lua
     Manages game audio and sound effects
+    Supports biome-specific ambient sounds
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,29 +13,10 @@ local Knit = require(Packages:WaitForChild("Knit"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Enums = require(Shared:WaitForChild("Enums"))
+local AudioConfig = require(Shared:WaitForChild("AudioConfig"))
 
--- Sound IDs (placeholder - replace with actual Roblox sound IDs)
--- Find sounds at: https://create.roblox.com/store/audio
-local SOUND_IDS = {
-    -- UI/Feedback sounds
-    Countdown = "rbxassetid://9125402735",      -- Countdown beep/tick
-
-    -- Round transition sounds
-    TeamSelection = "rbxassetid://79221349951511",  -- Team selection music/jingle
-    RoundStart = "rbxassetid://9125402735",     -- Round start horn/signal
-    RoundEnd = "rbxassetid://9125402735",       -- Round end sound
-    SeekerWin = "rbxassetid://101228531956240",      -- Seekers victory
-    RunnerWin = "rbxassetid://79221349951511",      -- Runners victory
-
-    -- Gameplay sounds
-    Freeze = "rbxassetid://128004921736980",         -- Player frozen
-    Unfreeze = "rbxassetid://9114869369",       -- Player unfrozen/rescued
-    FlashlightOn = "rbxassetid://91780959457306",   -- Flashlight toggle on
-    FlashlightOff = "rbxassetid://242135745",  -- Flashlight toggle off
-
-    -- Ambient/Music
-    Ambient = "rbxassetid://102839112392293",        -- Gameplay ambient/music
-}
+-- Sound IDs now loaded from AudioConfig
+local SOUND_IDS = AudioConfig.SOUNDS
 
 local AudioService = Knit.CreateService({
     Name = "AudioService",
@@ -42,9 +24,12 @@ local AudioService = Knit.CreateService({
     Client = {
         PlaySound = Knit.CreateSignal(),
         PlaySoundAtPosition = Knit.CreateSignal(),
+        SetAmbientBiome = Knit.CreateSignal(),
     },
 
     _sounds = {} :: { [string]: Sound },
+    _ambientSounds = {} :: { [string]: Sound },
+    _currentBiome = "Forest",
 })
 
 function AudioService:KnitInit()
@@ -103,22 +88,48 @@ function AudioService:_createSounds()
         local sound = Instance.new("Sound")
         sound.Name = name
         sound.SoundId = soundId
-        sound.Volume = 0.5
+        sound.Volume = AudioConfig.getVolume(name, "SFX")
         sound.Parent = soundsFolder
 
         self._sounds[name] = sound
     end
 
-    -- Set up ambient sound for looping
-    if self._sounds.Ambient then
-        self._sounds.Ambient.Looped = true
-        self._sounds.Ambient.Volume = 0.3
+    -- Set up ambient sounds for each biome
+    local ambientFolder = soundsFolder:FindFirstChild("Ambient")
+    if not ambientFolder then
+        ambientFolder = Instance.new("Folder")
+        ambientFolder.Name = "Ambient"
+        ambientFolder.Parent = soundsFolder
+    end
+
+    for biome, config in AudioConfig.AMBIENT do
+        -- Skip non-table entries (like FADE_TIME)
+        if type(config) == "table" and config.sound then
+            local soundId = AudioConfig.getSoundId(config.sound)
+            if soundId and soundId ~= "" then
+                local sound = Instance.new("Sound")
+                sound.Name = "Ambient_" .. biome
+                sound.SoundId = soundId
+                sound.Volume = 0 -- Start at 0, fade in when needed
+                sound.Looped = config.looped
+                sound.Parent = ambientFolder
+                self._ambientSounds[biome] = sound
+            end
+        end
     end
 
     -- Team selection can also loop
     if self._sounds.TeamSelection then
         self._sounds.TeamSelection.Looped = true
-        self._sounds.TeamSelection.Volume = 0.4
+        self._sounds.TeamSelection.Volume = AudioConfig.getVolume("TeamSelection", "Music")
+    end
+
+    -- Setup progression sounds
+    if self._sounds.LevelUp then
+        self._sounds.LevelUp.Volume = AudioConfig.getVolume("LevelUp", "SFX")
+    end
+    if self._sounds.XPGain then
+        self._sounds.XPGain.Volume = AudioConfig.getVolume("XPGain", "SFX")
     end
 end
 
@@ -202,11 +213,16 @@ function AudioService:PlaySoundAtPlayer(player: Player, soundName: string)
 end
 
 --[[
-    Start ambient/gameplay music
+    Start ambient/gameplay music for current biome
 ]]
 function AudioService:_startAmbient()
-    if self._sounds.Ambient and not self._sounds.Ambient.Playing then
-        self._sounds.Ambient:Play()
+    local biomeSound = self._ambientSounds[self._currentBiome]
+    if biomeSound then
+        local config = AudioConfig.getAmbientConfig(self._currentBiome)
+        biomeSound.Volume = config.volume
+        if not biomeSound.Playing then
+            biomeSound:Play()
+        end
     end
 end
 
@@ -214,9 +230,76 @@ end
     Stop ambient/gameplay music
 ]]
 function AudioService:_stopAmbient()
-    if self._sounds.Ambient and self._sounds.Ambient.Playing then
-        self._sounds.Ambient:Stop()
+    for _, sound in self._ambientSounds do
+        if sound.Playing then
+            sound:Stop()
+        end
+        sound.Volume = 0
     end
+end
+
+--[[
+    Set the current biome for ambient sounds
+    @param biome - The biome name ("Forest", "Snow", "Spooky")
+]]
+function AudioService:SetBiome(biome: string)
+    if self._currentBiome == biome then
+        return
+    end
+
+    local oldBiome = self._currentBiome
+    self._currentBiome = biome
+
+    -- Crossfade ambient sounds
+    local oldSound = self._ambientSounds[oldBiome]
+    local newSound = self._ambientSounds[biome]
+    local fadeTime = AudioConfig.AMBIENT.FADE_TIME
+
+    -- Fade out old
+    if oldSound and oldSound.Playing then
+        task.spawn(function()
+            local startVol = oldSound.Volume
+            local steps = 20
+            for i = 1, steps do
+                oldSound.Volume = startVol * (1 - i / steps)
+                task.wait(fadeTime / steps)
+            end
+            oldSound:Stop()
+            oldSound.Volume = 0
+        end)
+    end
+
+    -- Fade in new
+    if newSound then
+        local config = AudioConfig.getAmbientConfig(biome)
+        local targetVol = config.volume
+
+        if not newSound.Playing then
+            newSound.Volume = 0
+            newSound:Play()
+        end
+
+        task.spawn(function()
+            local steps = 20
+            for i = 1, steps do
+                newSound.Volume = targetVol * (i / steps)
+                task.wait(fadeTime / steps)
+            end
+            newSound.Volume = targetVol
+        end)
+    end
+
+    -- Notify clients
+    self.Client.SetAmbientBiome:FireAll(biome)
+
+    print(string.format("[AudioService] Biome changed: %s -> %s", oldBiome, biome))
+end
+
+--[[
+    Get the current biome
+]]
+function AudioService:GetBiome(): string
+    return self._currentBiome
 end
 
 --[[
@@ -237,13 +320,33 @@ function AudioService:_stopTeamSelectionMusic()
     end
 end
 
+--[[
+    Play a sound for level up
+    @param player - The player who leveled up
+]]
+function AudioService:PlayLevelUp(player: Player)
+    self.Client.PlaySound:Fire(player, "LevelUp")
+end
+
+--[[
+    Play XP gain sound
+    @param player - The player who gained XP
+]]
+function AudioService:PlayXPGain(player: Player)
+    self.Client.PlaySound:Fire(player, "XPGain")
+end
+
 -- Client methods (for UI sounds, etc.)
 function AudioService.Client:RequestSound(player: Player, soundName: string)
     -- Client can request certain sounds (with validation)
-    local allowedSounds = { "FlashlightOn", "FlashlightOff" }
+    local allowedSounds = { "FlashlightOn", "FlashlightOff", "UIClick", "UIHover" }
     if table.find(allowedSounds, soundName) then
         self.Server.Client.PlaySound:Fire(player, soundName)
     end
+end
+
+function AudioService.Client:GetCurrentBiome(): string
+    return self.Server:GetBiome()
 end
 
 return AudioService

@@ -41,6 +41,47 @@ local Enums = {
         Seekers = "Seekers",
         Runners = "Runners",
     },
+
+    Biome = {
+        Forest = "Forest",
+        Snow = "Snow",
+        Warehouse = "Warehouse",
+    },
+
+    QueueState = {
+        NotQueued = "NotQueued",
+        Queued = "Queued",
+        InGame = "InGame",
+    },
+
+    -- Power-up effect types
+    PowerUpEffect = {
+        Speed = "Speed",
+        Stealth = "Stealth",
+        Vision = "Vision",
+        Rescue = "Rescue",
+        Shield = "Shield",
+    },
+
+    -- Battery sizes
+    BatterySize = {
+        AAA = "AAA",
+        AA = "AA",
+        C = "C",
+        D = "D",
+        ["9V"] = "9V",
+        Lantern = "Lantern",
+    },
+
+    -- Flashlight types
+    FlashlightType = {
+        Standard = "Standard",
+        Wide = "Wide",
+        Focused = "Focused",
+        Strobe = "Strobe",
+        UV = "UV",
+        Spotlight = "Spotlight",
+    },
 }
 
 return Enums

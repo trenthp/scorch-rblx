@@ -204,12 +204,12 @@ function CrouchController:_createCrouchButton()
     gui.ResetOnSpawn = false
     gui.DisplayOrder = 10
 
-    -- Button container (bottom right, above mobile controls)
+    -- Button container (tool position - bottom center)
     local button = Instance.new("ImageButton")
     button.Name = "CrouchButton"
     button.Size = UDim2.fromOffset(70, 70)
-    button.Position = UDim2.new(1, -90, 1, -180)
-    button.AnchorPoint = Vector2.new(0.5, 0.5)
+    button.Position = UDim2.new(0.5, 0, 1, -50)
+    button.AnchorPoint = Vector2.new(0.5, 1)
     button.BackgroundColor3 = Color3.fromRGB(40, 60, 80)
     button.BackgroundTransparency = 0.3
     button.Visible = false -- Hidden by default

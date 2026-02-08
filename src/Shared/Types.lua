@@ -47,4 +47,26 @@ export type MapData = {
     runnerSpawns: { BasePart },
 }
 
+-- Stats and progression types (detailed versions in StatsTypes.lua)
+export type PlayerStats = {
+    freezesMade: number,
+    rescues: number,
+    timesFrozen: number,
+    gamesPlayed: number,
+    wins: number,
+    seekerWins: number,
+    runnerWins: number,
+    timeSurvived: number,
+}
+
+export type ProgressionData = {
+    xp: number,
+    level: number,
+    selectedTitle: string,
+    unlockedTitles: { string },
+}
+
+-- Biome type for map variety
+export type BiomeType = "Forest" | "Snow" | "Spooky"
+
 return nil

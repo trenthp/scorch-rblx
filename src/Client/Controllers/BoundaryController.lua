@@ -177,6 +177,13 @@ function BoundaryController:_updateMovementSpeed(coldLevel: number)
     -- Get base walk speed (use stored original or current if not crouching)
     local baseSpeed = self._originalWalkSpeed or 16
 
+    -- Apply Speed power-up multiplier if active
+    local BatteryController = Knit.GetController("BatteryController")
+    if BatteryController and BatteryController:HasEffect("Speed") then
+        local speedMult = BatteryController:GetEffectMultiplier("Speed")
+        baseSpeed = baseSpeed * speedMult
+    end
+
     -- Check if crouching (already reduced speed)
     local CrouchController = Knit.GetController("CrouchController")
     if CrouchController and CrouchController:IsCrouching() then

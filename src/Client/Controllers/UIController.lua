@@ -25,6 +25,13 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared:WaitForChild("Constants"))
 local Enums = require(Shared:WaitForChild("Enums"))
 
+-- UI Components are in the same client script tree
+local UIComponents = script.Parent.Parent:WaitForChild("UI"):WaitForChild("Components")
+local PlayerHub = require(UIComponents:WaitForChild("PlayerHub"))
+local ConfirmationDialog = require(UIComponents:WaitForChild("ConfirmationDialog"))
+local PowerUpBar = require(UIComponents:WaitForChild("PowerUpBar"))
+local BatteryPickupManager = require(UIComponents:WaitForChild("BatteryPickup"))
+
 local LocalPlayer = Players.LocalPlayer
 
 -- Design System
@@ -67,6 +74,10 @@ local UIController = Knit.CreateController({
     _currentPhase = nil :: string?,
     _currentRole = Enums.PlayerRole.Spectator :: string,
     _isFrozen = false,
+    _playerHub = nil :: any,
+    _confirmationDialog = nil :: any,
+    _powerUpBar = nil :: any,
+    _batteryPickupManager = nil :: any,
 })
 
 function UIController:KnitInit()
@@ -82,6 +93,9 @@ function UIController:KnitStart()
     local PlayerStateService = Knit.GetService("PlayerStateService")
 
     self:_createUI()
+    self:_setupPlayerHub()
+    self:_setupQueueListeners()
+    self:_setupPowerUpListeners()
 
     -- Game state changes
     GameStateService.GameStateChanged:Connect(function(newState, oldState)
@@ -159,6 +173,14 @@ function UIController:_createUI()
     self:_createCenterDisplay(screenGui)
     self:_createFreezeOverlay(screenGui)
     self:_createResultsPanel(screenGui)
+    self:_createPowerUpNotification(screenGui)
+
+    -- Create PowerUpBar (active effects + stored batteries)
+    self._powerUpBar = PowerUpBar.new(screenGui)
+    self._powerUpBar:hide()
+
+    -- Create battery pickup billboard manager
+    self._batteryPickupManager = BatteryPickupManager.new(screenGui)
 end
 
 --[[
@@ -546,6 +568,15 @@ function UIController:_onStateChanged(newState: string, oldState: string)
     -- Hide center display on state change
     self:_hideCenterDisplay()
 
+    -- Show/hide PowerUpBar based on state
+    if self._powerUpBar then
+        if newState == Enums.GameState.GAMEPLAY then
+            self._powerUpBar:show()
+        else
+            self._powerUpBar:hide()
+        end
+    end
+
     -- Update status bar for new state
     self:_updateStatusBar()
 end
@@ -845,11 +876,269 @@ function UIController:_closeResults()
 end
 
 --==============================================================================
+-- PLAYER HUB
+--==============================================================================
+
+function UIController:_setupPlayerHub()
+    if not self._screenGui then return end
+
+    -- Create confirmation dialog
+    self._confirmationDialog = ConfirmationDialog.new(self._screenGui)
+
+    -- Create player hub
+    self._playerHub = PlayerHub.new(self._screenGui)
+
+    -- Set up leave game callback with confirmation
+    self._playerHub:setLeaveGameCallback(function()
+        self:_showLeaveGameConfirmation()
+    end)
+
+    -- Show panel instantly when player joins (starts in Lobby mode)
+    self._playerHub:showInstant()
+
+    -- Initial stats update
+    self:_updatePlayerHubStats()
+end
+
+function UIController:_setupQueueListeners()
+    local QueueController = Knit.GetController("QueueController")
+    local StatsController = Knit.GetController("StatsController")
+    local ProgressionController = Knit.GetController("ProgressionController")
+
+    -- Listen for queue state changes
+    QueueController:OnQueueStateChanged(function(newState)
+        if self._playerHub then
+            self._playerHub:updateQueueState(newState, QueueController:GetQueuedCount())
+        end
+    end)
+
+    -- Listen for queue count changes
+    QueueController:OnQueueCountChanged(function(count)
+        if self._playerHub then
+            self._playerHub:updateQueueState(QueueController:GetQueueState(), count)
+        end
+    end)
+
+    -- Listen for stats updates
+    StatsController:OnStatsUpdated(function(stats)
+        self:_updatePlayerHubStats()
+    end)
+
+    -- Listen for progression updates
+    ProgressionController:OnProgressionUpdated(function(progression)
+        self:_updatePlayerHubStats()
+    end)
+
+    -- Initial queue state
+    task.spawn(function()
+        task.wait(0.5) -- Wait for controllers to initialize
+        if self._playerHub then
+            self._playerHub:updateQueueState(
+                QueueController:GetQueueState(),
+                QueueController:GetQueuedCount()
+            )
+        end
+    end)
+end
+
+function UIController:_updatePlayerHubStats()
+    if not self._playerHub then return end
+
+    local StatsController = Knit.GetController("StatsController")
+    local ProgressionController = Knit.GetController("ProgressionController")
+
+    local stats = StatsController:GetStats()
+    local progression = StatsController:GetProgression()
+
+    if not stats then
+        stats = {
+            freezesMade = 0,
+            rescues = 0,
+            timesFrozen = 0,
+            gamesPlayed = 0,
+            wins = 0,
+            seekerWins = 0,
+            runnerWins = 0,
+            timeSurvived = 0,
+        }
+    end
+
+    if not progression then
+        progression = {
+            xp = ProgressionController:GetXP(),
+            level = ProgressionController:GetLevel(),
+            selectedTitle = ProgressionController:GetTitle(),
+            unlockedTitles = ProgressionController:GetUnlockedTitles(),
+        }
+    end
+
+    self._playerHub:updateStats(stats, progression)
+end
+
+function UIController:_showLeaveGameConfirmation()
+    if not self._confirmationDialog then return end
+
+    self._confirmationDialog:show(
+        "Leave Game?",
+        "You will be removed from the current round and returned to the lobby.",
+        function()
+            -- On confirm
+            local QueueController = Knit.GetController("QueueController")
+            QueueController:LeaveGame()
+        end
+    )
+end
+
+--==============================================================================
+-- POWER-UP NOTIFICATIONS
+--==============================================================================
+
+function UIController:_createPowerUpNotification(parent: ScreenGui)
+    local container = Instance.new("Frame")
+    container.Name = "PowerUpNotification"
+    container.Size = UDim2.new(0, 260, 0, 44)
+    container.Position = UDim2.new(0.5, -130, 0, 70)
+    container.BackgroundColor3 = Theme.Background
+    container.BackgroundTransparency = 1
+    container.Visible = false
+    container.Parent = parent
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = Theme.Radius
+    corner.Parent = container
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Name = "Stroke"
+    stroke.Color = Theme.SurfaceLight
+    stroke.Thickness = 1
+    stroke.Transparency = 1
+    stroke.Parent = container
+
+    local effectLabel = Instance.new("TextLabel")
+    effectLabel.Name = "EffectLabel"
+    effectLabel.Size = UDim2.new(1, -20, 1, 0)
+    effectLabel.Position = UDim2.new(0, 10, 0, 0)
+    effectLabel.BackgroundTransparency = 1
+    effectLabel.Text = ""
+    effectLabel.TextColor3 = Theme.Text
+    effectLabel.TextSize = 16
+    effectLabel.Font = Theme.Bold
+    effectLabel.TextTransparency = 1
+    effectLabel.Parent = container
+
+    self._elements.powerUpNotification = container
+    self._elements.powerUpStroke = stroke
+    self._elements.powerUpLabel = effectLabel
+end
+
+function UIController:_setupPowerUpListeners()
+    local BatteryController = Knit.GetController("BatteryController")
+
+    BatteryController:OnEffectActivated(function(effectId, duration)
+        self:_showPowerUpNotification(effectId, duration)
+    end)
+
+    BatteryController:OnEffectExpired(function(effectId)
+        self:_showPowerUpExpired(effectId)
+    end)
+end
+
+function UIController:_showPowerUpNotification(effectId: string, duration: number)
+    local container = self._elements.powerUpNotification
+    local stroke = self._elements.powerUpStroke
+    local label = self._elements.powerUpLabel
+    if not container or not label then return end
+
+    local BatteryConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BatteryConfig"))
+    local effect = BatteryConfig.getEffect(effectId)
+    if not effect then return end
+
+    label.Text = string.format("%s  %ds", effect.name, duration)
+    label.TextColor3 = effect.color
+    stroke.Color = effect.color
+
+    container.Visible = true
+    container.BackgroundTransparency = 1
+    stroke.Transparency = 1
+    label.TextTransparency = 1
+
+    TweenService:Create(container, Theme.Fast, { BackgroundTransparency = 0.1 }):Play()
+    TweenService:Create(stroke, Theme.Fast, { Transparency = 0.3 }):Play()
+    TweenService:Create(label, Theme.Fast, { TextTransparency = 0 }):Play()
+
+    -- Auto-hide after 2 seconds
+    task.delay(2, function()
+        if label.Text == string.format("%s  %ds", effect.name, duration) then
+            TweenService:Create(container, Theme.Fast, { BackgroundTransparency = 1 }):Play()
+            TweenService:Create(stroke, Theme.Fast, { Transparency = 1 }):Play()
+            TweenService:Create(label, Theme.Fast, { TextTransparency = 1 }):Play()
+            task.delay(0.2, function()
+                if label.TextTransparency > 0.5 then
+                    container.Visible = false
+                end
+            end)
+        end
+    end)
+end
+
+function UIController:_showPowerUpExpired(effectId: string)
+    local container = self._elements.powerUpNotification
+    local stroke = self._elements.powerUpStroke
+    local label = self._elements.powerUpLabel
+    if not container or not label then return end
+
+    local BatteryConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BatteryConfig"))
+    local effect = BatteryConfig.getEffect(effectId)
+    if not effect then return end
+
+    label.Text = string.format("%s expired", effect.name)
+    label.TextColor3 = Theme.TextSecondary
+    stroke.Color = Theme.SurfaceLight
+
+    container.Visible = true
+    container.BackgroundTransparency = 1
+    stroke.Transparency = 1
+    label.TextTransparency = 1
+
+    TweenService:Create(container, Theme.Fast, { BackgroundTransparency = 0.1 }):Play()
+    TweenService:Create(stroke, Theme.Fast, { Transparency = 0.3 }):Play()
+    TweenService:Create(label, Theme.Fast, { TextTransparency = 0 }):Play()
+
+    -- Auto-hide after 1.5 seconds
+    task.delay(1.5, function()
+        if label.Text == string.format("%s expired", effect.name) then
+            TweenService:Create(container, Theme.Fast, { BackgroundTransparency = 1 }):Play()
+            TweenService:Create(stroke, Theme.Fast, { Transparency = 1 }):Play()
+            TweenService:Create(label, Theme.Fast, { TextTransparency = 1 }):Play()
+            task.delay(0.2, function()
+                if label.TextTransparency > 0.5 then
+                    container.Visible = false
+                end
+            end)
+        end
+    end)
+end
+
+--==============================================================================
 -- PUBLIC API
 --==============================================================================
 
 function UIController:OnGameStateChanged(newState: string, oldState: string)
     self:_onStateChanged(newState, oldState)
+end
+
+--[[
+    Get the PlayerHub instance
+]]
+function UIController:GetPlayerHub()
+    return self._playerHub
+end
+
+--[[
+    Get the ConfirmationDialog instance
+]]
+function UIController:GetConfirmationDialog()
+    return self._confirmationDialog
 end
 
 return UIController

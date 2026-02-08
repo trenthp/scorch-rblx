@@ -21,6 +21,7 @@ local Constants = require(Shared:WaitForChild("Constants"))
 local Enums = require(Shared:WaitForChild("Enums"))
 local ConeDetection = require(Shared:WaitForChild("Utils"):WaitForChild("ConeDetection"))
 local FlashlightTypes = require(Shared:WaitForChild("FlashlightTypes"))
+local ItemConfig = require(Shared:WaitForChild("ItemConfig"))
 
 local FlashlightService = Knit.CreateService({
     Name = "FlashlightService",
@@ -486,6 +487,26 @@ function FlashlightService:_setSpotlightEnabled(player: Player, enabled: boolean
 end
 
 --[[
+    Get flashlight properties for a player based on their equipped flashlight type
+    @param player - The player
+    @return range, angle - The flashlight range and angle
+]]
+function FlashlightService:_getFlashlightProperties(player: Player): (number, number)
+    local InventoryService = Knit.GetService("InventoryService")
+    local inventory = InventoryService:GetInventory(player)
+
+    if inventory then
+        local flashlightConfig = ItemConfig.getFlashlight(inventory.equippedFlashlight)
+        if flashlightConfig then
+            return flashlightConfig.range, flashlightConfig.angle
+        end
+    end
+
+    -- Default values
+    return Constants.FLASHLIGHT_RANGE, Constants.FLASHLIGHT_ANGLE
+end
+
+--[[
     Process flashlight cone detection for all seekers with equipped flashlights
 ]]
 function FlashlightService:_processFlashlightDetection()
@@ -519,6 +540,9 @@ function FlashlightService:_processFlashlightDetection()
             continue
         end
 
+        -- Get flashlight properties based on equipped type
+        local flashlightRange, flashlightAngle = self:_getFlashlightProperties(seeker)
+
         -- Build ignore list for raycasts
         local ignoreList = { seekerCharacter }
 
@@ -550,12 +574,13 @@ function FlashlightService:_processFlashlightDetection()
             table.insert(fullIgnoreList, runnerCharacter)
 
             -- Check if runner is in flashlight cone with line of sight
+            -- Use player-specific flashlight range and angle
             local inCone = ConeDetection.IsTargetInConeWithLOS(
                 origin,
                 direction,
                 targetPos,
-                Constants.FLASHLIGHT_RANGE,
-                Constants.FLASHLIGHT_ANGLE,
+                flashlightRange,
+                flashlightAngle,
                 fullIgnoreList
             )
 

@@ -68,7 +68,7 @@ local Constants = {
         CHECK_RATE = 0.1,                -- How often to check hiding state
 
         -- Bush glow mechanics (anti-camping)
-        GLOW_START_TIME = 8,             -- Seconds before bush starts glowing
+        GLOW_START_TIME = 12,            -- Seconds before bush starts glowing (after warning at 10s)
         GLOW_MAX_TIME = 15,              -- Seconds to reach full glow (matches MAX_HIDE_TIME)
         GLOW_COOLDOWN = 10,              -- Seconds for bush heat to fully decay when empty
         GLOW_COLOR = Color3.fromRGB(255, 180, 80),  -- Warm amber glow

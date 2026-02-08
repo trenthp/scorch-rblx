@@ -1,7 +1,8 @@
 --!strict
 --[[
     SceneryService.lua
-    Procedurally generates forest scenery (trees, rocks, bushes, etc.)
+    Procedurally generates scenery (trees, rocks, bushes, etc.)
+    Supports biome-specific colors and materials
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,11 +14,13 @@ local Knit = require(Packages:WaitForChild("Knit"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared:WaitForChild("Constants"))
+local BiomeConfig = require(Shared:WaitForChild("BiomeConfig"))
 
 export type SceneryConfig = {
     bounds: { min: Vector3, max: Vector3 },
     density: number,
     seed: number?,
+    biome: string?,
 }
 
 local SceneryService = Knit.CreateService({
@@ -27,6 +30,8 @@ local SceneryService = Knit.CreateService({
     _sceneryFolder = nil :: Folder?,
     _random = nil :: Random?,
     _generated = false,
+    _currentBiome = "Forest",
+    _biomeColors = nil :: BiomeConfig.BiomeColors?,
 })
 
 -- Scenery template definitions
@@ -152,6 +157,11 @@ function SceneryService:KnitInit()
     self:_ensureBaseplate()
 
     self._random = Random.new(Constants.SCENERY.SEED or os.time())
+
+    -- Initialize with default biome colors
+    local defaultConfig = BiomeConfig.getConfig("Forest")
+    self._biomeColors = defaultConfig.colors
+
     print("[SceneryService] Initialized")
 end
 
@@ -341,6 +351,43 @@ function SceneryService:RegenerateScenery(newSeed: number?)
     local seed = newSeed or os.time()
     self._random = Random.new(seed)
     self:GenerateScenery()
+end
+
+--[[
+    Regenerate scenery with a specific biome
+    @param biome - The biome name to use
+]]
+function SceneryService:RegenerateWithBiome(biome: string)
+    self._currentBiome = biome
+    local config = BiomeConfig.getConfig(biome)
+    self._biomeColors = config.colors
+
+    -- Use a new seed based on biome name for variety
+    local seed = string.len(biome) * 12345 + os.time() % 1000
+    self._random = Random.new(seed)
+
+    self:GenerateScenery()
+    print(string.format("[SceneryService] Regenerated with biome: %s", biome))
+end
+
+--[[
+    Get a random color from the current biome's color set
+    @param colorType - Type of color ("trunk", "foliage", "rock", "bush", "hidingBush", "grass")
+    @return BrickColor
+]]
+function SceneryService:_getBiomeColor(colorType: string): BrickColor
+    if not self._biomeColors then
+        return BrickColor.new("Medium stone grey")
+    end
+
+    local colorKey = colorType .. "Colors"
+    local colors = self._biomeColors[colorKey]
+
+    if colors and #colors > 0 then
+        return colors[self._random:NextInteger(1, #colors)]
+    end
+
+    return BrickColor.new("Medium stone grey")
 end
 
 --[[
@@ -571,23 +618,17 @@ function SceneryService:_createTree(random: Random, size: string): Model
         foliageSize = random:NextNumber(3, 5)
     end
 
-    -- Trunk
+    -- Trunk - use biome colors
     local trunk = Instance.new("Part")
     trunk.Name = "Trunk"
     trunk.Size = Vector3.new(trunkWidth, trunkHeight, trunkWidth)
     trunk.Position = Vector3.new(0, trunkHeight / 2, 0)
     trunk.Anchored = true
-    trunk.BrickColor = BrickColor.new("Brown")
+    trunk.BrickColor = self:_getBiomeColor("trunk")
     trunk.Material = Enum.Material.Wood
     trunk.Parent = model
 
-    -- Foliage (multiple spherical parts for natural look)
-    local foliageColors = {
-        BrickColor.new("Forest green"),
-        BrickColor.new("Dark green"),
-        BrickColor.new("Camo"),
-    }
-
+    -- Foliage (multiple spherical parts for natural look) - use biome colors
     local numFoliage = random:NextInteger(3, 5)
     for i = 1, numFoliage do
         local foliage = Instance.new("Part")
@@ -601,7 +642,7 @@ function SceneryService:_createTree(random: Random, size: string): Model
             random:NextNumber(-foliageSize / 3, foliageSize / 3)
         )
         foliage.Anchored = true
-        foliage.BrickColor = foliageColors[random:NextInteger(1, #foliageColors)]
+        foliage.BrickColor = self:_getBiomeColor("foliage")
         foliage.Material = Enum.Material.Grass
         foliage.Parent = model
     end
@@ -626,13 +667,7 @@ function SceneryService:_createRock(random: Random, size: string): Model
         baseSize = random:NextNumber(0.8, 2)
     end
 
-    local rockColors = {
-        BrickColor.new("Dark stone grey"),
-        BrickColor.new("Medium stone grey"),
-        BrickColor.new("Flint"),
-    }
-
-    -- Main rock body
+    -- Main rock body - use biome colors
     local rock = Instance.new("Part")
     rock.Name = "RockBody"
     rock.Size = Vector3.new(
@@ -642,7 +677,7 @@ function SceneryService:_createRock(random: Random, size: string): Model
     )
     rock.Position = Vector3.new(0, rock.Size.Y / 2, 0)
     rock.Anchored = true
-    rock.BrickColor = rockColors[random:NextInteger(1, #rockColors)]
+    rock.BrickColor = self:_getBiomeColor("rock")
     rock.Material = Enum.Material.Slate
     rock.Parent = model
 
@@ -664,7 +699,7 @@ function SceneryService:_createRock(random: Random, size: string): Model
                 random:NextNumber(-baseSize / 2, baseSize / 2)
             )
             extra.Anchored = true
-            extra.BrickColor = rockColors[random:NextInteger(1, #rockColors)]
+            extra.BrickColor = self:_getBiomeColor("rock")
             extra.Material = Enum.Material.Slate
             extra.Parent = model
         end
@@ -680,12 +715,6 @@ end
 function SceneryService:_createBush(random: Random): Model
     local model = Instance.new("Model")
     model.Name = "Bush"
-
-    local bushColors = {
-        BrickColor.new("Forest green"),
-        BrickColor.new("Dark green"),
-        BrickColor.new("Earth green"),
-    }
 
     local baseSize = random:NextNumber(1.5, 3)
     local numParts = random:NextInteger(3, 6)
@@ -704,7 +733,7 @@ function SceneryService:_createBush(random: Random): Model
             random:NextNumber(-baseSize / 2, baseSize / 2)
         )
         part.Anchored = true
-        part.BrickColor = bushColors[random:NextInteger(1, #bushColors)]
+        part.BrickColor = self:_getBiomeColor("bush")
         part.Material = Enum.Material.Grass
         part.Parent = model
 
@@ -824,12 +853,6 @@ function SceneryService:_createTallGrass(random: Random): Model
     local model = Instance.new("Model")
     model.Name = "TallGrass"
 
-    local grassColors = {
-        BrickColor.new("Bright green"),
-        BrickColor.new("Lime green"),
-        BrickColor.new("Forest green"),
-    }
-
     local numBlades = random:NextInteger(5, 12)
     local mainPart: Part? = nil
 
@@ -852,7 +875,7 @@ function SceneryService:_createTallGrass(random: Random): Model
             random:NextNumber(-0.2, 0.2)
         )
         blade.Anchored = true
-        blade.BrickColor = grassColors[random:NextInteger(1, #grassColors)]
+        blade.BrickColor = self:_getBiomeColor("grass")
         blade.Material = Enum.Material.Grass
         blade.CanCollide = false
         blade.Parent = model
@@ -924,13 +947,6 @@ function SceneryService:_createHidingBush(random: Random): Model
     local model = Instance.new("Model")
     model.Name = "HidingBush"
 
-    -- Darker greens to distinguish from decorative bushes
-    local bushColors = {
-        BrickColor.new("Dark green"),
-        BrickColor.new("Earth green"),
-        BrickColor.new("Forest green"),
-    }
-
     -- Size large enough to hide a player (player is ~5 studs tall, ~2 studs wide)
     local baseWidth = random:NextNumber(6, 8)
     local baseHeight = random:NextNumber(5, 7)
@@ -961,7 +977,7 @@ function SceneryService:_createHidingBush(random: Random): Model
         part.CanCollide = false -- Players can walk through
         part.CanQuery = true -- Flashlight raycasts will hit this
         part.CastShadow = true
-        part.BrickColor = bushColors[random:NextInteger(1, #bushColors)]
+        part.BrickColor = self:_getBiomeColor("hidingBush")
         part.Material = Enum.Material.Grass
         part.Parent = model
 
@@ -989,38 +1005,41 @@ function SceneryService:_createHidingBush(random: Random): Model
         part.CanCollide = false
         part.CanQuery = true
         part.CastShadow = true
-        part.BrickColor = bushColors[random:NextInteger(1, #bushColors)]
+        part.BrickColor = self:_getBiomeColor("hidingBush")
         part.Material = Enum.Material.Grass
         part.Parent = model
     end
 
     -- Add some berries/flowers as visual indicator this is a hiding spot
-    local numBerries = random:NextInteger(3, 6)
-    local berryColors = {
-        BrickColor.new("Bright red"),
-        BrickColor.new("Bright violet"),
-        BrickColor.new("Bright blue"),
-    }
+    -- Only in Forest biome (snow/spooky don't have colorful berries)
+    if self._currentBiome == "Forest" then
+        local numBerries = random:NextInteger(3, 6)
+        local berryColors = {
+            BrickColor.new("Bright red"),
+            BrickColor.new("Bright violet"),
+            BrickColor.new("Bright blue"),
+        }
 
-    for i = 1, numBerries do
-        local berry = Instance.new("Part")
-        berry.Name = "Berry" .. i
-        berry.Shape = Enum.PartType.Ball
-        berry.Size = Vector3.new(0.3, 0.3, 0.3)
+        for i = 1, numBerries do
+            local berry = Instance.new("Part")
+            berry.Name = "Berry" .. i
+            berry.Shape = Enum.PartType.Ball
+            berry.Size = Vector3.new(0.3, 0.3, 0.3)
 
-        local angle = random:NextNumber(0, math.pi * 2)
-        local radius = baseWidth * random:NextNumber(0.3, 0.5)
-        berry.Position = Vector3.new(
-            math.cos(angle) * radius,
-            random:NextNumber(1, baseHeight * 0.6),
-            math.sin(angle) * radius
-        )
-        berry.Anchored = true
-        berry.CanCollide = false
-        berry.CanQuery = false -- Don't block raycasts with tiny berries
-        berry.BrickColor = berryColors[random:NextInteger(1, #berryColors)]
-        berry.Material = Enum.Material.SmoothPlastic
-        berry.Parent = model
+            local angle = random:NextNumber(0, math.pi * 2)
+            local radius = baseWidth * random:NextNumber(0.3, 0.5)
+            berry.Position = Vector3.new(
+                math.cos(angle) * radius,
+                random:NextNumber(1, baseHeight * 0.6),
+                math.sin(angle) * radius
+            )
+            berry.Anchored = true
+            berry.CanCollide = false
+            berry.CanQuery = false -- Don't block raycasts with tiny berries
+            berry.BrickColor = berryColors[random:NextInteger(1, #berryColors)]
+            berry.Material = Enum.Material.SmoothPlastic
+            berry.Parent = model
+        end
     end
 
     model.PrimaryPart = mainPart
